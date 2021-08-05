@@ -15,6 +15,7 @@ import cv2
 import matplotlib
 import numpy as np
 import torch
+import torchvision
 import yaml
 
 from utils.google_utils import gsutil_getsize
