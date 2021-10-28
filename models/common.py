@@ -5,6 +5,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint as cp
 from PIL import Image, ImageDraw
 
 from utils.datasets import letterbox
@@ -164,7 +165,7 @@ class BottleneckCSP(nn.Module):
 
 class BottleneckCSPF(nn.Module):
     # CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5, with_cp=True):  # ch_in, ch_out, number, shortcut, groups, expansion
         super(BottleneckCSPF, self).__init__()
         c_ = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, c_, 1, 1)
@@ -174,11 +175,19 @@ class BottleneckCSPF(nn.Module):
         self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)
         self.act = nn.SiLU()
         self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        self.with_cp = with_cp
 
     def forward(self, x):
-        y1 = self.m(self.cv1(x))
-        y2 = self.cv2(x)
-        return self.cv4(self.act(self.bn(torch.cat((y1, y2), dim=1))))
+        def _inner_forward(x):
+            y1 = self.m(self.cv1(x))
+            y2 = self.cv2(x)
+            return self.cv4(self.act(self.bn(torch.cat((y1, y2), dim=1))))
+
+        if x.requires_grad() and self.with_cp:
+            out = cp.checkpoint(_inner_forward, x)
+        else:
+            out = _inner_forward(x)
+        return out
 
 
 class BottleneckCSPL(nn.Module):
