@@ -63,7 +63,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 	plots = not opt.evolve  # create plots
 	cuda = device.type != 'cpu'
 	init_seeds(2 + rank)
-	with open(opt.data) as f:
+	with open(opt.data, encoding='utf-8') as f:
 		data_dict = yaml.load(f, Loader=yaml.FullLoader)  # data dict
 	with torch_distributed_zero_first(rank):
 		check_dataset(data_dict)  # check
@@ -73,7 +73,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 	assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
 
 	# Model
-	pretrained = weights.endswith('.pt')
+	pretrained = weights.endswith('.pt') or weights.endswith('.pth')
 	if pretrained:
 		with torch_distributed_zero_first(rank):
 			attempt_download(weights)  # download if not found locally
@@ -153,7 +153,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 		wandb_run = wandb.init(config=opt, resume="allow",
 							   project='YOLOR' if opt.project == 'runs/train' else Path(opt.project).stem,
 							   name=save_dir.stem,
-							   id=ckpt.get('wandb_id') if 'ckpt' in locals() else None)
+							   id=None)
 
 	# Resume
 	start_epoch, best_fitness = 0, 0.0
@@ -360,7 +360,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 											 single_cls=opt.single_cls,
 											 dataloader=testloader,
 											 save_dir=save_dir,
-											 plots=plots and final_epoch,
+											 plots=plots,
 											 log_imgs=opt.log_imgs if wandb else 0)
 
 			# Write
