@@ -183,7 +183,7 @@ class BottleneckCSPF(nn.Module):
             y2 = self.cv2(x)
             return self.cv4(self.act(self.bn(torch.cat((y1, y2), dim=1))))
 
-        if x.requires_grad() and self.with_cp:
+        if x.requires_grad and self.with_cp:
             out = cp.checkpoint(_inner_forward, x)
         else:
             out = _inner_forward(x)
